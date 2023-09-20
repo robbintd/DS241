@@ -1,0 +1,131 @@
+---
+title: "nyc_002"
+output: html_notebook
+---
+For asynchronous lecture on Sept 11, 2023.
+
+
+Task1: Loading necessary packages:
+```{r}
+
+library(nycflights13)
+library(tidyverse)
+library(janitor)
+library(here)
+rm()
+
+df1 = nycflights13::flights
+
+```
+
+Task2: Catching up to prior output (flight 83 delay plot)
+```{r}
+
+df6 = df1 |> filter(flight == 83, dest == "MIA")
+
+ggplot(df6, aes(x=dep_delay, y=arr_delay)) + geom_point()
+
+# Questions:
+# Do delays change by time of day?
+# Are delays more frequent at certain times of year?
+# Do flights "hurry up" in response to dep_delay?
+
+```
+
+Task3: Flights from LGA to MIA, observing delay response
+```{r}
+
+df2 = df1 |> filter(dest == "MIA") |> count(origin, sort = TRUE)
+view(df2)
+
+df7 = df1 |> filter(dest == "MIA", origin == "LGA") |> mutate(flt_delta = arr_delay - dep_delay)
+
+ggplot(df7, aes(x=dep_delay, y=flt_delta)) + geom_point(alpha=0.1)
+
+```
+It appears that flt_delta is more often negative than positive, and the more severe the dep_delay, the more negative the delta, meaning they hurry up to make up time.
+
+
+Task4: Using horizontal line indicator of average delta
+```{r}
+
+ggplot(df7, aes(x=dep_delay, y=flt_delta)) + geom_point(alpha=0.1) + geom_hline(aes(yintercept = mean(flt_delta, na.rm = TRUE)))
+
+```
+
+Task5: Seeing how dep_delay depends on time of year
+```{r}
+
+df7 |> 
+  ggplot(aes(x=time_hour,y=dep_delay)) + geom_point(alpha=0.1) + stat_smooth() + ylim(-25,120)
+
+```
+
+Task6: Seeing how dep_delay depends on time of day
+```{r}
+# attempt1
+df7 |> ggplot(aes(x=hour+minute/60,y=dep_delay)) + geom_point(alpha=0.1) + stat_smooth() + ylim(-25,120)
+
+# attempt2 --> more detailed
+df7 |> mutate(day_of_week=weekdays(time_hour)) |> ggplot(aes(x=hour+minute/60,y=dep_delay, color=day_of_week)) + geom_point(alpha=0.1) + stat_smooth() + ylim(-25,120)
+
+# attempt3 --> most detailed
+df7 |> mutate(day_of_week=weekdays(time_hour)) |> ggplot(aes(x=hour+minute/60,y=dep_delay, color=day_of_week)) + geom_point(alpha=0.1) + stat_smooth() + ylim(-20,40) + facet_wrap(~day_of_week)
+
+```
+
+Task7: Starting new BTS data study
+```{r}
+
+# Loading the BTS data looks different for me here because I unzipped the file so I am loading the csv directly
+
+BTSdata = here("rawdata","9.11_BTS_data","T_T100D_SEGMENT_US_CARRIER_ONLY.csv")
+
+df2022 = read_csv(BTSdata) |> clean_names()
+
+```
+Task 8: Extracting useful observations, plotting flights by month from LGA
+```{r}
+df9 = df2022 |> filter(passengers != 0, origin == "LGA")
+
+# bar chart counting the number of rows by month
+ggplot(df9, aes(month)) + geom_bar()
+
+# bar chart counting number of departures by month
+ggplot(df9, aes(month)) + geom_bar(aes(weight=departures_performed))
+
+# bar chart counting number of passengers by month
+ggplot(df9, aes(month)) + geom_bar(aes(weight=passengers))
+```
+Observation: Fewer passengers early 2022 due to COVID19 still being prominent.
+
+Task 9: Further analysis...
+```{r}
+
+# Coloring previous figure by carrier
+ggplot(df9, aes(month, fill = carrier_name)) + geom_bar(aes(weight=departures_performed))
+
+
+# Plotting total passengers through LGA
+df10 = df2022 |> filter(passengers>0, origin == "LGA" | dest == "LGA")
+
+ggplot(df10, aes(month)) + geom_bar(aes(weight=passengers))
+
+# Decluttering variables
+df11 = df10 |> select(month,passengers,carrier_name,dest,origin)
+
+df12 = df10 |> select(1:5,month, contains("id"))
+
+```
+
+Task 10: How full was the plane?
+```{r}
+
+df13 = df10 |> mutate(percent_loading = passengers/seats*100)
+
+ggplot(df13, aes(percent_loading)) + geom_histogram() + facet_wrap(~carrier_name, scales = "free_y")
+
+```
+
+
+```{r}
